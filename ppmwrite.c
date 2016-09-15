@@ -26,11 +26,23 @@ int main(int argc, char *argv[])
     perror("usage: conversion-number in-file.ppm out-file.ppm \n");
   }
 
-  char *outType;                          //Decide which type of conversion to do
+  char *outType;
+  char fh[256];                        //Decide which type of conversion to do
   if(strcmp(argv[1], "6")) outType = "P6";
   else if(strcmp(argv[1], "3")) outType = "P3";
-  else perror("Please specify the conversion type\n Enter 3 to convert to P3 or 6 to convert to P6\n");
+  else {
+    perror("Please specify the conversion type\n Enter 3 to convert to P3 or 6 to convert to P6\n");
+    return 0;
+  }
 
+  if(strstr(argv[2], ".ppm") == NULL) {
+    perror("Please provide a .ppm file for conversion");
+    return 0;
+  }
+  if(strstr(argv[3], ".ppm") == NULL) {
+    perror("Please provide a valid .ppm file name to write to");
+    return 0;
+  }
   FILE *outFile = fopen(argv[3], "wb");
   FILE *inFile = fopen(argv[2], "rb");
 
@@ -46,7 +58,7 @@ int main(int argc, char *argv[])
 //write a new P6 file
 void writeP6 (FILE *inFile, FILE *outFile){
 
-  char buff[SIZE], *fb;
+  char buff[SIZE], *fh;
 
   PPMImage image;
 
@@ -55,32 +67,38 @@ void writeP6 (FILE *inFile, FILE *outFile){
   unsigned int width, height, maxColors;
   char red[8], green[8], blue[8];
 
-  fb = fgets(buff, SIZE, inFile);           //Get the magic number first
+  fh = fgets(buff, SIZE, inFile);           //Get the magic number first
   printf("%s\n",buff );
-  if ( (fb == NULL) || ( strncmp(buff, "P3\n", 3) != 0 ) ) perror("Please provide a P3 .ppm file for conversion\n");
+  if ( (fh == NULL) || ( strncmp(buff, "P3\n", 3) != 0 ) ) perror("Please provide a P3 .ppm file for conversion\n");
   (void) fprintf(outFile, "P6\n");
 
   //handle any and all comments
   do
         {
-           fb = fgets(buff, SIZE, inFile);
+           fh = fgets(buff, SIZE, inFile);
            if( strncmp(buff, "#", 1) == 0) fprintf(outFile, "%s", buff);
            printf("%s",buff);
-           if ( fb == NULL ) return;
+           if ( fh == NULL ) return;
         } while ( strncmp(buff, "#", 1) == 0 );
 
   //read in the width and height
   read = sscanf(buff, "%u %u", &image.width, &image.height);
 
+  if(read < 2) {
+    perror("File Unreadable. Please check the file format\n");
+    return;
+  }
+
   image.data = (RGBPix *)malloc(sizeof(RGBPix) * image.width * image.height);
 
-  printf("%s\n", buff );
 
-  if(read < 2) perror("File Unreadable. Please check the file format\n");
   //read in the max colors
   read = fscanf(inFile, "%u", &maxColors);
 
-  if(maxColors != 255) perror("Please provide an 24-bit color file");
+  if(maxColors != 255 || read != 1) {
+    perror("Please provide an 24-bit color file");
+    return;
+  }
 
   //put all that good stuff into the outFile
   fprintf(outFile, "%u %u\n%u\n",image.width, image.height, maxColors);
@@ -102,7 +120,7 @@ void writeP6 (FILE *inFile, FILE *outFile){
 
 void writeP3 (FILE *inFile, FILE *outFile){
 
-  char buff[SIZE], *fb;
+  char buff[SIZE], *fh;
 
   PPMImage image;
 
@@ -110,25 +128,34 @@ void writeP3 (FILE *inFile, FILE *outFile){
   unsigned int width, height, maxColors;
   unsigned char red, green, blue;
 
-  fb = (char *)malloc(sizeof(char) * SIZE);
-  fb = fgets(buff, SIZE, inFile);
-  if ( (fb == NULL) || ( strncmp(buff, "P6\n", 3) != 0 ) ) perror("Please provide a P6 .ppm file for conversion\n");
+  fh = (char *)malloc(sizeof(char) * SIZE);
+  fh = fgets(buff, SIZE, inFile);
+  if ( (fh == NULL) || ( strncmp(buff, "P6\n", 3) != 0 ) ) perror("Please provide a P6 .ppm file for conversion\n");
   (void) fprintf(outFile, "P3\n");
 
   do
         {
-           fb = fgets(buff, SIZE, inFile);
+           fh = fgets(buff, SIZE, inFile);
            if( strncmp(buff, "#", 1) == 0) fprintf(outFile, "%s", buff);
-           if ( fb == NULL ) return;
+           if ( fh == NULL ) return;
         } while ( strncmp(buff, "#", 1) == 0 );
 
   //read in the width and height
   read = sscanf(buff, "%u %u", &image.width, &image.height);
 
+
+  if(read < 2) {
+    perror("File Unreadable. Please check the file format\n");
+    return;
+  }
   image.data = (RGBPix *)malloc(sizeof(RGBPix) * image.width * image.height);
 
-  if(read < 2) perror("File Unreadable. Please check the file format\n");
   read = fscanf(inFile, "%u", &maxColors);
+  if(maxColors != 255 || read != 1) {
+    perror("Please provide an 24-bit color file");
+    return;
+  }
+
 
   //put all that good stuff into the outFile
   fprintf(outFile, "%u %u\n%u\n",image.width, image.height, maxColors);
